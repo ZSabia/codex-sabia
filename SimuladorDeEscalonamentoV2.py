@@ -253,10 +253,21 @@ class SchedulerApp:
 
         plt.tight_layout()
        
-        # Calcula TMP e TME e atualiza o label
-        tmp, tme = self.calcular_tme_tmp(exec_fifo)
-        self.tmp_label.config(text=f"Tempo Médio de Espera (TMP): {tmp:.2f}   Tempo Médio de Execução (TME): {tme:.2f}")
 
+# Calcula TMP e TME de cada algoritmo
+tmp_fifo, tme_fifo = self.calcular_tme_tmp(exec_fifo)
+tmp_sjf, tme_sjf = self.calcular_tme_tmp(exec_sjf)
+tmp_prio, tme_prio = self.calcular_tme_tmp(exec_prio)
+tmp_rr, tme_rr = self.calcular_tme_tmp(rr)
+
+# Atualiza o label com todos
+texto = (
+    f"FIFO -> TMP: {tmp_fifo:.2f} | TME: {tme_fifo:.2f} | "
+    f"SJF -> TMP: {tmp_sjf:.2f} | TME: {tme_sjf:.2f} | "
+    f"Prioridade -> TMP: {tmp_prio:.2f} | TME: {tme_prio:.2f} | "
+    f"RR -> TMP: {tmp_rr:.2f} | TME: {tme_rr:.2f}"
+)
+self.tmp_label.config(text=texto)
 
         if hasattr(self, 'canvas'):
             self.canvas.get_tk_widget().destroy()
