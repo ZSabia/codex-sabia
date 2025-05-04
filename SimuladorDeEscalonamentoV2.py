@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-import random
 import numpy as np
+import customtkinter as ctk
+from tkinter import ttk, messagebox, filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import random
+
+
 
 class SchedulerApp:
     TEMAS = {
+        # Temas de cores para a interface
         "light_soft": {
             "bg": "#F4F4F4", "fg": "#333333", "btn_bg": "#D1D1D1", "entry_bg": "#FFFFFF",
             "btn_active_bg": "#C5C5C5", "btn_active_fg": "#000000"
@@ -79,195 +83,324 @@ class SchedulerApp:
         },
     }
 
+    
     def __init__(self, root):
+        # Inicialização da aplicação e variáveis principais
         self.root = root
         self.root.title("Simulador de Escalonamento")
         self.processos = []
-        self.quantum = 4 ## Define o quantum
-        self.configurar_tema("purple_dream")   ## Pode mudar o tema de acordo
+        self.quantum = 0
         self.setup_ui()
 
     def configurar_tema(self, nome_tema: str):
+        # Aplica o tema selecionado à interface
         tema = self.TEMAS.get(nome_tema)
         if not tema:
             raise ValueError(f"Tema '{nome_tema}' não encontrado")
         style = ttk.Style()
         self.root.configure(bg=tema["bg"])
         style.theme_use("clam")
-        style.configure("TLabel", background=tema["bg"], foreground=tema["fg"])
-        style.configure("TButton", background=tema["btn_bg"], foreground=tema["fg"], relief="flat")
-        style.configure("TEntry", fieldbackground=tema["entry_bg"], foreground=tema["fg"])
-        style.configure("TFrame", background=tema["bg"])
+        style.configure("TLabel", background=tema["bg"], foreground=tema["fg"], font=("Segoe UI", 12))
+        style.configure("TButton", background=tema["btn_bg"], foreground=tema["fg"], relief="flat", padding=8, font=("Segoe UI", 12, "bold"), borderwidth=0)
+        style.configure("TEntry", fieldbackground=tema["entry_bg"], foreground=tema["fg"], padding=6, font=("Segoe UI", 12))
+        style.configure("TFrame", background=tema["bg"], borderwidth=0)
         style.map("TButton",
             background=[('active', tema["btn_active_bg"])],
-            foreground=[('active', tema["btn_active_fg"])])
+            foreground=[('active', tema["btn_active_fg"])]
+        )
+        # Arredondar cantos (quando suportado)
+        try:
+            style.element_create("RoundedFrame", "from", "clam")
+            style.layout("RoundedFrame", [('RoundedFrame', {'sticky': 'nswe'})])
+            style.configure("RoundedFrame", borderwidth=0, relief="flat")
+        except Exception:
+            pass
+        # Aplica cor de fundo geral
+        self.root.update_idletasks()
+        self.root.configure(bg=tema["bg"])
+
+    def criar_seletor_tema(self):
+        # Cria o menu de seleção de tema
+        frm_tema = ttk.Frame(self.root)
+        frm_tema.pack(pady=14)
+        ttk.Label(frm_tema, text="Tema:").pack(side=tk.LEFT, padx=7)
+        self.tema_var = tk.StringVar(value="dark_soft")
+        tema_menu = ttk.OptionMenu(frm_tema, self.tema_var, "dark_soft", *self.TEMAS.keys(), command=self.alterar_tema)
+        tema_menu.pack(side=tk.LEFT, padx=4)
+
+    def alterar_tema(self, nome_tema):
+        # Altera o tema da interface
+        try:
+            self.configurar_tema(nome_tema)
+        except ValueError as e:
+            messagebox.showerror("Erro", str(e))
+
+    def limpar_campos(self):
+        # Limpa todos os campos de entrada
+        self.nome_entry.delete(0, tk.END)
+        self.tempo_entry.delete(0, tk.END)
+        self.prioridade_entry.delete(0, tk.END)
+        self.entrada_entry.delete(0, tk.END)
+
+    def preencher_campos(self, nome, tempo, prioridade, entrada):
+        # Preenche os campos de entrada com os valores fornecidos
+        self.nome_entry.insert(0, nome)
+        self.tempo_entry.insert(0, str(tempo))
+        self.prioridade_entry.insert(0, str(prioridade))
+        self.entrada_entry.insert(0, str(entrada))
+
+    def gerar_processos_aleatorios(self, quantidade):
+        # Gera uma lista de tuplas com processos aleatórios
+        nomes_processos = [
+            "chrome.exe", "python.exe", "svchost.exe", "firefox.exe", 
+            "notepad.exe", "explorer.exe", "java.exe", "System", "cmd.exe",
+            "code.exe", "spotify.exe", "discord.exe", "steam.exe", "edge.exe",
+            "outlook.exe", "winword.exe", "excel.exe", "photoshop.exe"
+        ]
+        random.shuffle(nomes_processos)
+        processos = []
+        for i in range(quantidade):
+            nome = nomes_processos[i]
+            tempo_exec = random.randint(2, 20) * (i + 1)
+            entrada = random.randint(0, 5) * (i + 1)
+            prioridade = random.randint(0, 15)
+            processos.append((nome, tempo_exec, prioridade, entrada))
+        return processos
+
+    def ativar_ia(self):
+        self.limpar_processos()
+        num_processos = random.randint(1, 5)
+        processos = self.gerar_processos_aleatorios(num_processos)
+        for nome, tempo_exec, prioridade, entrada in processos:
+            self.limpar_campos()
+            self.preencher_campos(nome, tempo_exec, prioridade, entrada)
+            self.adicionar_processo()
+        self.gerar_gantt()
 
     def setup_ui(self):
-        frm_input = ttk.Frame(self.root)
-        frm_input.pack(pady=10)
+        # Monta toda a interface gráfica (widgets)
+        self.criar_seletor_tema()
+        frm_input = ctk.CTkFrame(self.root, corner_radius=16)
+        frm_input.pack(pady=18, padx=16)
 
-        ttk.Label(frm_input, text="Nome:").grid(row=0, column=0)
-        self.nome_entry = ttk.Entry(frm_input, width=10)
-        self.nome_entry.grid(row=0, column=1)
+        labels = ["Nome:", "Tempo Exec:", "Prioridade:", "Entrada:", "Quantum:"]
+        for idx, text in enumerate(labels):
+            ttk.Label(frm_input, text=text).grid(row=0, column=idx*2, padx=6, pady=8)
+        self.nome_entry = ttk.Entry(frm_input, width=14); self.nome_entry.grid(row=0, column=1, padx=6, pady=8)
+        self.tempo_entry = ttk.Entry(frm_input, width=9); self.tempo_entry.grid(row=0, column=3, padx=6, pady=8)
+        self.prioridade_entry = ttk.Entry(frm_input, width=9); self.prioridade_entry.grid(row=0, column=5, padx=6, pady=8)
+        self.entrada_entry = ttk.Entry(frm_input, width=9); self.entrada_entry.grid(row=0, column=7, padx=6, pady=8)
+        self.quantum_entry = ttk.Entry(frm_input, width=9); self.quantum_entry.insert(0, "4"); self.quantum_entry.grid(row=0, column=9, padx=6, pady=8)
+        ttk.Button(frm_input, text="Adicionar", command=self.adicionar_processo).grid(row=0, column=10, padx=10, pady=8)
 
-        ttk.Label(frm_input, text="Tempo Exec:").grid(row=0, column=2)
-        self.tempo_entry = ttk.Entry(frm_input, width=5)
-        self.tempo_entry.grid(row=0, column=3)
+        # Substitui Listbox por Treeview para visual moderno e cantos arredondados
+        columns = ("Nome", "Execução", "Prioridae", "Entrada")
+        self.lista = ttk.Treeview(self.root, columns=columns, show="headings", height=6)
+        for col in columns:
+            self.lista.heading(col, text=col)
+            self.lista.column(col, anchor="center", width=120)
+        self.lista.pack(pady=16, padx=16, ipady=8)
 
-        ttk.Label(frm_input, text="Prioridade:").grid(row=0, column=4)
-        self.prioridade_entry = ttk.Entry(frm_input, width=5)
-        self.prioridade_entry.grid(row=0, column=5)
-
-        ttk.Label(frm_input, text="Tempo Entrada:").grid(row=0, column=6)
-        self.entrada_entry = ttk.Entry(frm_input, width=5)
-        self.entrada_entry.grid(row=0, column=7)
-
-        ttk.Button(frm_input, text="Adicionar Processo", command=self.adicionar_processo).grid(row=0, column=8, padx=5)
-
-        self.lista = tk.Listbox(self.root, width=70, bg="#3C3C3C", fg="#DCDCDC")
-        self.lista.pack(pady=10)
-
-        frm_buttons = ttk.Frame(self.root)
-        frm_buttons.pack()
-
-        ttk.Button(frm_buttons, text="Gerar Gráfico Gantt", command=self.gerar_gantt).pack(side=tk.LEFT, padx=10)
-        ttk.Button(frm_buttons, text="Exportar Gráfico", command=self.exportar_gantt).pack(side=tk.LEFT, padx=10)
-
-        self.tmp_label = ttk.Label(self.root, text="TMP: N/A   TME: N/A")
-        self.tmp_label.pack(pady=10)
+        frm_buttons = ctk.CTkFrame(self.root, corner_radius=16); frm_buttons.pack(pady=8)
+        ttk.Button(frm_buttons, text="Gerar Gráfico", command=self.gerar_gantt).pack(side=tk.LEFT, padx=16, pady=8)
+        ttk.Button(frm_buttons, text="Exportar", command=self.exportar_gantt).pack(side=tk.LEFT, padx=16, pady=8)
+        ttk.Button(frm_buttons, text="Limpar", command=self.limpar_processos).pack(side=tk.LEFT, padx=16, pady=8)
+        ttk.Button(self.root, text="IA", command=self.ativar_ia, width=3).place(relx=1.0, rely=0.0, anchor='ne')
+        self.tmp_label = ttk.Label(self.root, text="TMP: N/A   TME: N/A", font=("Consolas", 12, "bold"))
+        self.tmp_label.pack(pady=16)
 
     def adicionar_processo(self):
+        # Adiciona um novo processo à lista interna e à interface
         nome = self.nome_entry.get()
         tempo = self.tempo_entry.get()
         prioridade = self.prioridade_entry.get()
         entrada = self.entrada_entry.get()
-
         if nome and tempo.isdigit() and prioridade.isdigit() and entrada.isdigit():
-            cor = self.gerar_cor_unica(nome)
+            pid = len(self.processos)
+            cor = self.gerar_cor_unica(nome + str(pid))
             self.processos.append({
+                "pid": pid,
                 "nome": nome,
                 "tempo_exec": int(tempo),
                 "prioridade": int(prioridade),
                 "entrada": int(entrada),
                 "cor": cor
             })
-            self.lista.insert(tk.END, f"{nome} - {tempo} - Prioridade {prioridade} - Entrada {entrada}")
-            self.nome_entry.delete(0, tk.END)
-            self.tempo_entry.delete(0, tk.END)
-            self.prioridade_entry.delete(0, tk.END)
-            self.entrada_entry.delete(0, tk.END)
+            self.lista.insert("", tk.END, values=(nome, tempo, prioridade, entrada))
+            self.limpar_campos()
         else:
-            messagebox.showerror("Erro", "Preencha todos os campos corretamente.")
+            messagebox.showerror("Erro", "Preencha tudo certinho, parça.")
+
+    def limpar_processos(self):
+        # Limpa todos os processos e o gráfico
+        self.processos.clear(); self.lista.delete(*self.lista.get_children())
+        self.tmp_label.config(text="TMP: N/A   TME: N/A")
+        if hasattr(self, 'canvas'):
+            self.canvas.get_tk_widget().destroy()
 
     def gerar_cor_unica(self, nome):
+        # Gera uma cor única baseada no nome do processo
         random.seed(nome)
         return f"#{random.randint(0, 0xFFFFFF):06x}"
 
     def simular_execucao(self, lista):
+        # Simula execução FIFO dos processos
         tempo = 0
         result = []
         for p in lista:
-            result.append({"nome": p["nome"], "inicio": tempo, "duracao": p["tempo_exec"], "cor": p["cor"]})
-            tempo += p["tempo_exec"]
+            inicio = max(tempo, p["entrada"])
+            dur = p.get("duracao", p["tempo_exec"])
+            result.append({
+                "pid": p["pid"],
+                "nome": p["nome"],
+                "entrada": p["entrada"],
+                "duracao": dur,
+                "inicio": inicio,
+                "fim": inicio + dur,
+                "cor": p["cor"]
+            })
+            tempo = inicio + dur
         return result
 
     def round_robin(self, procs, q):
-        fila = [{"nome": p["nome"], "restante": p["tempo_exec"], "entrada": p["entrada"], "cor": p["cor"]} for p in procs]
-        tempo = 0
-        execucao = []
-        while any(p["restante"] > 0 for p in fila):
-            for p in fila:
-                if p["restante"] > 0 and p["entrada"] <= tempo:
-                    duracao = min(q, p["restante"])
-                    execucao.append({"nome": p["nome"], "inicio": tempo, "duracao": duracao, "cor": p["cor"]})
-                    tempo += duracao
-                    p["restante"] -= duracao
+        # Simula execução Round Robin
+        from collections import deque
+        fila = deque(sorted([{"pid":p["pid"],"nome":p["nome"],"restante":p["tempo_exec"],"entrada":p["entrada"],"cor":p["cor"]} for p in procs], key=lambda x: x["entrada"]))
+        tempo = 0; execucao = []; pronta = deque()
+        while fila or pronta:
+            while fila and fila[0]["entrada"] <= tempo:
+                pronta.append(fila.popleft())
+            if not pronta:
+                tempo += 1
+                continue
+            proc = pronta.popleft()
+            dur = min(q, proc["restante"])
+            execucao.append({**proc, "duracao": dur, "inicio": tempo, "fim": tempo + dur})
+            tempo += dur
+            proc["restante"] -= dur
+            while fila and fila[0]["entrada"] <= tempo:
+                pronta.append(fila.popleft())
+            if proc["restante"] > 0:
+                pronta.append(proc)
+        return list(execucao)
+
+    def sjf(self, procs):
+        # Simula execução SJF (Shortest Job First)
+        restos = sorted([{"pid":p["pid"],"nome":p["nome"],"tempo_exec":p["tempo_exec"],"entrada":p["entrada"],"cor":p["cor"]} for p in procs], key=lambda x: x["entrada"])
+        tempo = 0; execucao = []
+        while restos:
+            avail = [p for p in restos if p["entrada"] <= tempo]
+            if not avail:
+                tempo += 1
+                continue
+            p = min(avail, key=lambda x: x["tempo_exec"])
+            restos.remove(p)
+            inicio = max(tempo, p["entrada"])
+            dur = p["tempo_exec"]
+            execucao.append({**p, "duracao": dur, "inicio": inicio, "fim": inicio + dur})
+            tempo = inicio + dur
+        return execucao
+
+    def prioridade(self, procs):
+        # Simula execução por prioridade
+        restos = sorted([{"pid":p["pid"],"nome":p["nome"],"tempo_exec":p["tempo_exec"],"entrada":p["entrada"],"prioridade":p["prioridade"],"cor":p["cor"]} for p in procs], key=lambda x: x["entrada"])
+        tempo = 0; execucao = []
+        while restos:
+            disponiveis = [p for p in restos if p["entrada"] <= tempo]
+            if not disponiveis:
+                tempo += 1
+                continue
+            p = min(disponiveis, key=lambda x: x["prioridade"])
+            restos.remove(p)
+            inicio = max(tempo, p["entrada"])
+            dur = p["tempo_exec"]
+            execucao.append({**p, "duracao": dur, "inicio": inicio, "fim": inicio + dur})
+            tempo = inicio + dur
         return execucao
 
     def calcular_tme_tmp(self, execucao):
-        tempos_finais = {}
-        tempos_iniciais = {}
-        for p in execucao:
-            nome = p["nome"]
-            if nome not in tempos_iniciais:
-                tempos_iniciais[nome] = p["inicio"]
-            tempos_finais[nome] = p["inicio"] + p["duracao"]
-
-        total_espera = 0
-        total_execucao = 0
-        n = len(self.processos)
-
-        for proc in self.processos:
-            nome = proc["nome"]
-            entrada = proc["entrada"]
-            duracao = proc["tempo_exec"]
-            fim = tempos_finais[nome]
-            inicio = tempos_iniciais[nome]
-
-            espera = inicio - entrada
-            execucao = fim - entrada
-
-            total_espera += espera
-            total_execucao += execucao
-
-        tmp = total_espera / n
-        tme = total_execucao / n
-        return round(tmp, 2), round(tme, 2)
+        # Calcula TMP (tempo médio de espera) e TME (tempo médio de retorno)
+        stats = {}
+        for seg in execucao:
+            pid = seg["pid"]
+            if pid not in stats:
+                stats[pid] = {"arrival": seg["entrada"], "burst": 0, "finish": 0}
+            stats[pid]["burst"] += seg["duracao"]
+            stats[pid]["finish"] = max(stats[pid]["finish"], seg["fim"])
+        tot_w = tot_t = 0; n = len(stats)
+        for v in stats.values():
+            turn = v["finish"] - v["arrival"]
+            wait = turn - v["burst"]
+            tot_w += wait; tot_t += turn
+        return round(tot_w/n, 2), round(tot_t/n, 2)
 
     def gerar_gantt(self):
+        # Gera o gráfico de Gantt para todos os algoritmos
         if not self.processos:
-            messagebox.showinfo("Aviso", "Adicione pelo menos um processo.")
+            messagebox.showinfo("Aviso", "Adiciona uns processos aí primeiro.")
+            return
+        try:
+            quantum = int(self.quantum_entry.get())
+            if quantum <= 0:
+                messagebox.showerror("Erro", "Quantum deve ser maior que zero.")
+                return
+            self.quantum = quantum
+        except ValueError:
+            messagebox.showerror("Erro", "Quantum inválido.")
             return
 
-        fifo = sorted(self.processos, key=lambda x: x["entrada"])
-        sjf = sorted(self.processos, key=lambda x: x["tempo_exec"])
-        prioridade = sorted(self.processos, key=lambda x: x["prioridade"])
-        rr = self.round_robin(self.processos, self.quantum)
+        exec_fifo = self.simular_execucao(sorted(self.processos, key=lambda x: x["entrada"]))
+        exec_sjf = self.sjf(self.processos)
+        exec_pri = self.prioridade(self.processos)
+        exec_rr = self.round_robin(self.processos, self.quantum)
 
-        exec_fifo = self.simular_execucao(fifo)
-        exec_sjf = self.simular_execucao(sjf)
-        exec_prio = self.simular_execucao(prioridade)
-        execucoes = [exec_fifo, exec_sjf, exec_prio, rr]
+        execucoes = [exec_fifo, exec_sjf, exec_pri, exec_rr]
         nomes = ["FIFO", "SJF", "Prioridade", f"Round Robin (Q={self.quantum})"]
 
+        resultados = [self.calcular_tme_tmp(execucao) for execucao in execucoes]
+        texto_original = "\n".join(
+            f"{nome} -> TMP: {tmp:.2f} | TME: {tme:.2f}"
+            for nome, (tmp, tme) in zip(nomes, resultados)
+        )
+        self.tmp_label.config(text=texto_original)
+
         plt.style.use('dark_background')
-        fig, axs = plt.subplots(4, 1, figsize=(10, 6), sharex=True)
-        for i, (ax, nome, execucao) in enumerate(zip(axs, nomes, execucoes)):
-            for bloco in execucao:
-                ax.barh(0, bloco['duracao'], left=bloco['inicio'], color=bloco['cor'])
-                ax.text(bloco['inicio'] + bloco['duracao']/2, 0, bloco['nome'], ha='center', va='center', color='white')
-            ax.set_yticks([])
-            ax.set_ylabel(nome, rotation=0, labelpad=60)
+        fig, axs = plt.subplots(len(execucoes), 1, figsize=(10, 6), sharex=True)
+        fig.patch.set_facecolor('#1e1e1e')
+        self.execucoes = execucoes
 
-        # Aplica os labels de cada gráfico
-        axs[-1].set_xlabel("Tempo")
-
-        # >>> AQUI: define os ticks personalizados no eixo X
         tempo_maximo = max(
             max(bloco["inicio"] + bloco["duracao"] for bloco in execucao)
             for execucao in execucoes
         )
-        ticks = np.arange(0, tempo_maximo + 1, self.quantum)  # 1 ou self.quantum
-        for ax in axs:
+        ticks = np.arange(0, tempo_maximo + 1, 1)
+
+        def on_hover(event):
+            if event.inaxes is not None:
+                ax_index = axs.flatten().tolist().index(event.inaxes)
+                execucao = execucoes[ax_index]
+                for bloco in execucao:
+                    if bloco['inicio'] <= event.xdata <= (bloco['inicio'] + bloco['duracao']):
+                        texto = f"Processo: {bloco['nome']}\nInício: {bloco['inicio']}\nDuração: {bloco['duracao']}\nFim: {bloco['fim']}"
+                        self.tmp_label.config(text=texto)
+                        return
+            self.tmp_label.config(text=texto_original)
+
+        for ax, nome, execucao in zip(axs, nomes, execucoes):
+            ax.set_facecolor('#1e1e1e')
+            ax.tick_params(colors='white')
+            for bloco in execucao:
+                ax.barh(0, bloco['duracao'], left=bloco['inicio'], color=bloco['cor'])
+                ax.text(
+                    bloco['inicio'] + bloco['duracao'] / 2, 0, bloco['nome'],
+                    ha='center', va='center', color='white', fontsize=8
+                )
+            ax.set_yticks([])
+            ax.set_ylabel(nome, rotation=0, labelpad=60, color='white')
             ax.set_xticks(ticks)
 
+        axs[-1].set_xlabel("Tempo", color='white')
         plt.tight_layout()
-       
-
-# Calcula TMP e TME de cada algoritmo
-tmp_fifo, tme_fifo = self.calcular_tme_tmp(exec_fifo)
-tmp_sjf, tme_sjf = self.calcular_tme_tmp(exec_sjf)
-tmp_prio, tme_prio = self.calcular_tme_tmp(exec_prio)
-tmp_rr, tme_rr = self.calcular_tme_tmp(rr)
-
-# Atualiza o label com todos
-texto = (
-    f"FIFO -> TMP: {tmp_fifo:.2f} | TME: {tme_fifo:.2f} | "
-    f"SJF -> TMP: {tmp_sjf:.2f} | TME: {tme_sjf:.2f} | "
-    f"Prioridade -> TMP: {tmp_prio:.2f} | TME: {tme_prio:.2f} | "
-    f"RR -> TMP: {tmp_rr:.2f} | TME: {tme_rr:.2f}"
-)
-self.tmp_label.config(text=texto)
 
         if hasattr(self, 'canvas'):
             self.canvas.get_tk_widget().destroy()
@@ -275,22 +408,107 @@ self.tmp_label.config(text=texto)
         self.canvas = FigureCanvasTkAgg(fig, master=self.root)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(pady=10)
-
         self.fig = fig
 
+        self.canvas.mpl_connect('motion_notify_event', on_hover)
+        self.canvas.mpl_connect('scroll_event', self.zoom)
+        self.canvas.mpl_connect('button_press_event', self.handle_mouse_buttons)
+
+    def zoom(self, event):
+        # Função de zoom horizontal no gráfico
+        ax = event.inaxes
+        if ax is None:
+            return
+        cur_xlim = ax.get_xlim()
+        if event.button == 'up':
+            shift = (cur_xlim[1] - cur_xlim[0]) * 0.1
+            ax.set_xlim(cur_xlim[0] + shift, cur_xlim[1] + shift)
+        elif event.button == 'down':
+            shift = (cur_xlim[1] - cur_xlim[0]) * 0.1
+            ax.set_xlim(cur_xlim[0] - shift, cur_xlim[1] - shift)
+        self.canvas.draw()
+
+    def handle_mouse_buttons(self, event):
+        # Gerencia cliques do mouse para zoom/reset
+        if event.button == 1:
+            self.zoom_section(event)
+        elif event.button == 3:
+            self.reset_zoom(event)
+
+    def reset_zoom(self, event):
+        # Reseta o zoom do gráfico
+        if hasattr(self, 'execucoes'):
+            tempo_maximo = max(
+                max(bloco["inicio"] + bloco["duracao"] for bloco in execucao)
+                for execucao in self.execucoes
+            )
+            for ax in self.fig.axes:
+                ax.set_xlim(0, tempo_maximo)
+            self.canvas.draw()
+
+    def zoom_section(self, event):
+        # Dá zoom em uma seção específica do gráfico
+        xdata = event.xdata
+        if xdata is None:
+            return
+        for ax in self.fig.axes:
+            ax.set_xlim(xdata - 5, xdata + 5)
+        self.canvas.draw()
+
     def exportar_gantt(self):
-        if not hasattr(self, 'fig'):
-            messagebox.showinfo("Aviso", "Gere o gráfico antes de exportar.")
+        # Exporta o gráfico de Gantt para arquivo com UX aprimorado
+        if (not hasattr(self, 'fig') or 
+            not hasattr(self, 'canvas') or 
+            not plt.fignum_exists(self.fig.number) or 
+            not self.processos):
+            messagebox.showerror("Exportação Falhou", "Nenhum gráfico válido para exportar.\nGere um gráfico primeiro.", icon='warning')
             return
 
-        arquivo = filedialog.asksaveasfilename(defaultextension=".png",
-                                               filetypes=[("PNG files", "*.png")],
-                                               title="Salvar gráfico como")
-        if arquivo:
-            self.fig.savefig(arquivo)
-            messagebox.showinfo("Sucesso", f"Gráfico salvo em: {arquivo}")
+        file_path = filedialog.asksaveasfilename(
+            title="Salvar Gráfico de Gantt",
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("Todos os arquivos", "*.*")],
+            initialfile="gantt.png"
+        )
+        if file_path:
+            try:
+                self.fig.savefig(file_path, dpi=300, facecolor=self.fig.get_facecolor())
+                resposta = messagebox.askyesno(
+                    "Exportação Concluída",
+                    f"Gráfico exportado com sucesso para:\n{file_path}\n\nDeseja abrir a pasta?",
+                    icon='info'
+                )
+                if resposta:
+                    import os
+                    import subprocess
+                    pasta = os.path.dirname(file_path)
+                    subprocess.Popen(["xdg-open", pasta])
+            except Exception as e:
+                messagebox.showerror("Erro ao Exportar", f"Ocorreu um erro ao salvar o arquivo:\n{e}")
+
+def escolher_tema(temas):
+    escolha = {"tema": None}
+    def confirmar():
+        escolha["tema"] = var.get()
+        win.destroy()
+
+    win = tk.Tk()
+    win.title("Escolha o Tema")
+    win.geometry("350x180")
+    win.resizable(False, False)
+    tk.Label(win, text="Escolha o tema para iniciar:", font=("Segoe UI", 12, "bold")).pack(pady=18)
+    var = tk.StringVar(value="dark_soft")
+    opcoes = list(temas.keys())
+    tema_menu = ttk.OptionMenu(win, var, var.get(), *opcoes)
+    tema_menu.pack(pady=8)
+    ttk.Button(win, text="Confirmar", command=confirmar).pack(pady=16)
+    win.grab_set()
+    win.mainloop()
+    return escolha["tema"]
 
 if __name__ == "__main__":
+    tema_escolhido = escolher_tema(SchedulerApp.TEMAS)
     root = tk.Tk()
     app = SchedulerApp(root)
+    app.configurar_tema(tema_escolhido)
     root.mainloop()
