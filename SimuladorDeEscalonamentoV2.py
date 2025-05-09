@@ -150,7 +150,7 @@ class SchedulerApp:
         self.entrada_entry.insert(0, str(entrada))
 
     def gerar_processos_aleatorios(self, quantidade):
-        # Gera uma lista de tuplas com processos aleatórios
+        # Gera uma lista de com processos aleatórios
         nomes_processos = [
             "chrome.exe", "python.exe", "svchost.exe", "firefox.exe", 
             "notepad.exe", "explorer.exe", "java.exe", "System", "cmd.exe",
@@ -206,7 +206,7 @@ class SchedulerApp:
         ttk.Button(frm_buttons, text="Exportar", command=self.exportar_gantt).pack(side=tk.LEFT, padx=16, pady=8)
         ttk.Button(frm_buttons, text="Limpar", command=self.limpar_processos).pack(side=tk.LEFT, padx=16, pady=8)
         ttk.Button(self.root, text="IA", command=self.ativar_ia, width=3).place(relx=1.0, rely=0.0, anchor='ne')
-        self.tmp_label = ttk.Label(self.root, text="TMP: N/A   TME: N/A", font=("Consolas", 12, "bold"))
+        self.tmp_label = ttk.Label(self.root, text="TME: N/A   TMP: N/A", font=("Consolas", 12, "bold"))
         self.tmp_label.pack(pady=16)
 
     def adicionar_processo(self):
@@ -318,21 +318,31 @@ class SchedulerApp:
             tempo = inicio + dur
         return execucao
 
+
     def calcular_tme_tmp(self, execucao):
-        # Calcula TMP (tempo médio de espera) e TME (tempo médio de retorno)
+        # Calcula o Tempo Médio de Espera (TME) e o Tempo Médio de Retorno (TMP)
         stats = {}
         for seg in execucao:
             pid = seg["pid"]
             if pid not in stats:
-                stats[pid] = {"arrival": seg["entrada"], "burst": 0, "finish": 0}
-            stats[pid]["burst"] += seg["duracao"]
-            stats[pid]["finish"] = max(stats[pid]["finish"], seg["fim"])
-        tot_w = tot_t = 0; n = len(stats)
+                stats[pid] = {"entrada": seg["entrada"], "tempo_cpu": 0, "termino": 0}
+                stats[pid]["tempo_cpu"] += seg["duracao"]
+                stats[pid]["termino"] = max(stats[pid]["termino"], seg["fim"])
+
+        total_espera = 0
+        total_retorno = 0
+        n = len(stats)
+
         for v in stats.values():
-            turn = v["finish"] - v["arrival"]
-            wait = turn - v["burst"]
-            tot_w += wait; tot_t += turn
-        return round(tot_w/n, 2), round(tot_t/n, 2)
+            tempo_retorno = v["termino"] - v["entrada"]    # tempo total até o processo terminar
+            tempo_espera = tempo_retorno - v["tempo_cpu"]      # tempo que ficou esperando
+            total_espera += tempo_espera
+            total_retorno += tempo_retorno
+
+        tme = total_espera / n
+        tmp = total_retorno / n
+        return round(tme, 2), round(tmp, 2)
+
 
     def gerar_gantt(self):
         # Gera o gráfico de Gantt para todos os algoritmos
@@ -359,9 +369,11 @@ class SchedulerApp:
 
         resultados = [self.calcular_tme_tmp(execucao) for execucao in execucoes]
         texto_original = "\n".join(
-            f"{nome} -> TMP: {tmp:.2f} | TME: {tme:.2f}"
-            for nome, (tmp, tme) in zip(nomes, resultados)
+            f"{nome} -> TME: {tme:.2f} | TMP: {tmp:.2f}"
+            for nome, (tme, tmp) in zip(nomes, resultados)
         )
+
+
         self.tmp_label.config(text=texto_original)
 
         plt.style.use('dark_background')
@@ -510,5 +522,5 @@ if __name__ == "__main__":
     tema_escolhido = escolher_tema(SchedulerApp.TEMAS)
     root = tk.Tk()
     app = SchedulerApp(root)
-    app.configurar_tema(tema_escolhido)
+    #app.configurar_tema(tema_escolhido)
     root.mainloop()
