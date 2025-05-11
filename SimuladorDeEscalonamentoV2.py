@@ -326,8 +326,8 @@ class SchedulerApp:
             pid = seg["pid"]
             if pid not in stats:
                 stats[pid] = {"entrada": seg["entrada"], "tempo_cpu": 0, "termino": 0}
-                stats[pid]["tempo_cpu"] += seg["duracao"]
-                stats[pid]["termino"] = max(stats[pid]["termino"], seg["fim"])
+            stats[pid]["tempo_cpu"] += seg["duracao"]
+            stats[pid]["termino"] = max(stats[pid]["termino"], seg["fim"])
 
         total_espera = 0
         total_retorno = 0
