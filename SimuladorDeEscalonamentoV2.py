@@ -2,7 +2,6 @@
 
 import tkinter as tk
 import numpy as np
-import customtkinter as ctk
 from tkinter import ttk, messagebox, filedialog
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -180,7 +179,7 @@ class SchedulerApp:
     def setup_ui(self):
         # Monta toda a interface gráfica (widgets)
         self.criar_seletor_tema()
-        frm_input = ctk.CTkFrame(self.root, corner_radius=16)
+        frm_input = ttk.Frame(self.root)
         frm_input.pack(pady=18, padx=16)
 
         labels = ["Nome:", "Tempo Exec:", "Prioridade:", "Entrada:", "Quantum:"]
@@ -194,14 +193,15 @@ class SchedulerApp:
         ttk.Button(frm_input, text="Adicionar", command=self.adicionar_processo).grid(row=0, column=10, padx=10, pady=8)
 
         # Substitui Listbox por Treeview para visual moderno e cantos arredondados
-        columns = ("Nome", "Execução", "Prioridae", "Entrada")
+        columns = ("Nome", "Execução", "Prioridade", "Entrada")
         self.lista = ttk.Treeview(self.root, columns=columns, show="headings", height=6)
         for col in columns:
             self.lista.heading(col, text=col)
             self.lista.column(col, anchor="center", width=120)
         self.lista.pack(pady=16, padx=16, ipady=8)
 
-        frm_buttons = ctk.CTkFrame(self.root, corner_radius=16); frm_buttons.pack(pady=8)
+        frm_buttons = ttk.Frame(self.root)
+        frm_buttons.pack(pady=8)
         ttk.Button(frm_buttons, text="Gerar Gráfico", command=self.gerar_gantt).pack(side=tk.LEFT, padx=16, pady=8)
         ttk.Button(frm_buttons, text="Exportar", command=self.exportar_gantt).pack(side=tk.LEFT, padx=16, pady=8)
         ttk.Button(frm_buttons, text="Limpar", command=self.limpar_processos).pack(side=tk.LEFT, padx=16, pady=8)
@@ -493,8 +493,15 @@ class SchedulerApp:
                 if resposta:
                     import os
                     import subprocess
+                    import platform
                     pasta = os.path.dirname(file_path)
-                    subprocess.Popen(["xdg-open", pasta])
+                    # Cross-platform folder opening
+                    if platform.system() == 'Windows':
+                        os.startfile(pasta)
+                    elif platform.system() == 'Darwin':  # macOS
+                        subprocess.Popen(['open', pasta])
+                    else:  # Linux
+                        subprocess.Popen(['xdg-open', pasta])
             except Exception as e:
                 messagebox.showerror("Erro ao Exportar", f"Ocorreu um erro ao salvar o arquivo:\n{e}")
 
@@ -522,5 +529,5 @@ if __name__ == "__main__":
     tema_escolhido = escolher_tema(SchedulerApp.TEMAS)
     root = tk.Tk()
     app = SchedulerApp(root)
-    #app.configurar_tema(tema_escolhido)
+    app.configurar_tema(tema_escolhido)
     root.mainloop()
