@@ -6,11 +6,11 @@ cd "$DIR"
 VENV="${TWITCH_APP_VENV:-$DIR/.venv-twitch}"
 
 if [ ! -x "$VENV/bin/python" ]; then
-    echo "Creating the Twitch app environment..."
+    echo "Creating the SabiáCast environment..."
     python3 -m venv "$VENV"
 fi
 
 # Recheck requirements so an existing environment also gets missing packages.
 "$VENV/bin/python" -m pip install -r "$DIR/requirements-twitch.txt"
 export PATH="$VENV/bin:$PATH"
-exec "$VENV/bin/python" "$DIR/twitch_app.py"
+exec "$VENV/bin/python" "$DIR/sabiacast.py"

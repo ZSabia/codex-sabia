@@ -909,7 +909,7 @@ class StreamTab(QWidget):
 class TwitchApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Twitch Desktop Client - Multi-Live")
+        self.setWindowTitle("SabiáCast — Multi-Live")
         self.resize(1280, 720)
 
         self.user_id, self.user_login, self.display_name = get_my_info()

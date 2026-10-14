@@ -84,9 +84,11 @@ This is a learning project: the encryption key is stored alongside the data, and
 .venv/bin/python CofreDeSenhas.py
 ```
 
-### Twitch desktop client
+### SabiáCast — unofficial client for Twitch
 
-[twitch_app.py](twitch_app.py) · [twitchapp.sh](twitchapp.sh)
+[sabiacast.py](sabiacast.py) · [sabiacast.sh](sabiacast.sh)
+
+SabiáCast is an independent personal project. It is not affiliated with, sponsored by, or endorsed by Twitch Interactive, Inc. Twitch is a trademark of Twitch Interactive, Inc.
 
 I made this because I wanted to watch Twitch without ads, without paying for a subscription, and with as little delay as possible.
 
@@ -99,7 +101,7 @@ Streamlink filters embedded ads automatically, but playback can pause while an a
 `TwitchApp.init_ui` builds the main window; `StreamTab.init_ui` builds each stream tab. Playback starts in `_resolve_and_play`, and `IRCClient` handles chat over TLS.
 
 ```sh
-bash twitchapp.sh
+bash sabiacast.sh
 ```
 
 The launcher creates a separate `.venv-twitch` environment and checks `requirements-twitch.txt` on each run. It adds that environment to `PATH` so the app can find the Streamlink command. Set `TWITCH_APP_VENV` to choose another environment.
@@ -161,7 +163,7 @@ For all the original desktop utilities, run `.venv/bin/python -m pip install -r 
 | Alias manager | `.venv/bin/python -m pip install pyperclip` |
 | Password storage experiment | `.venv/bin/python -m pip install cryptography` |
 | FlatTrash | No extra Python packages beyond Tkinter |
-| Twitch client | `.venv/bin/python -m pip install -r requirements-twitch.txt` (also requires VLC) |
+| SabiáCast | `.venv/bin/python -m pip install -r requirements-twitch.txt` (also requires VLC) |
 | Nutrition calculator | Python standard library only |
 
 On Debian/Ubuntu-based distributions, Tkinter and virtual environment support are provided by `python3-tk` and `python3-venv`. Depending on your desktop session, pyperclip may also need a clipboard utility.
