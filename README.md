@@ -20,7 +20,7 @@ The calculations are in `formula_amostra_proporcao`, `formula_amostra_desvio`, a
 .venv/bin/python CalculadoraEstatistica.py
 ```
 
-### Scheduling simulator
+### CPU Scheduling simulator
 
 [SimuladorDeEscalonamentoV2.py](SimuladorDeEscalonamentoV2.py)
 
