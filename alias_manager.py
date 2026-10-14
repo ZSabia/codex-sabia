@@ -1,64 +1,99 @@
 #!/usr/bin/env python3
 
 import os
+import re
+import shlex
+import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import pyperclip
 
-ALIAS_FILE = os.path.expanduser("~/.bash_aliases")
+ALIAS_FILE = os.path.expanduser("~/.config/fish/conf.d/aliases.fish")
 EDITOR = os.getenv("EDITOR", "gedit")
 
+
 def reload_terminal():
-    os.system("terminal --hold -e bash -c 'source ~/.bash_aliases; exec bash' & disown")
+    try:
+        subprocess.Popen(["gnome-terminal", "--", "fish"])
+    except OSError as exc:
+        messagebox.showerror("Erro", f"Não consegui abrir o terminal: {exc}")
+
+
+def parse_alias(line):
+    try:
+        parts = shlex.split(line, comments=True)
+    except ValueError:
+        return None
+    if not parts or parts.pop(0) != "alias":
+        return None
+    if parts and parts[0] == "--":
+        parts.pop(0)
+    if not parts or parts[0].startswith("-"):
+        return None
+    if "=" in parts[0]:
+        name, command = parts[0].split("=", 1)
+        if len(parts) != 1:
+            return None
+    elif len(parts) == 2:
+        name, command = parts
+    else:
+        return None
+    return (name, command) if name and command else None
+
 
 def read_aliases():
     if not os.path.exists(ALIAS_FILE):
         return []
-    
     aliases = []
-    with open(ALIAS_FILE, "r") as f:
-        lines = f.readlines()
-    
     description = "Sem descrição."
-    for i, line in enumerate(lines):
-        line = line.strip()
-        if line.startswith("#"):
-            description = line.lstrip("# ")
-        elif line.startswith("alias "):
-            parts = line.split("=", 1)
-            if len(parts) == 2:
-                name = parts[0].replace("alias ", "").strip()
-                command = parts[1].strip().strip("'")
-                if i > 0 and lines[i-1].strip().startswith("#"):
-                    aliases.append((name, command, description))
-                else:
-                    aliases.append((name, command, "Sem descrição."))
-                description = "Sem descrição."
-    
-    return sorted(aliases, key=lambda x: x[0])  # Ordena alfabeticamente
+    with open(ALIAS_FILE, encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                description = stripped.lstrip("# ")
+                continue
+            alias = parse_alias(stripped)
+            if alias:
+                aliases.append((*alias, description))
+            description = "Sem descrição."
+    return sorted(aliases, key=lambda x: x[0])
+
 
 def write_alias(alias, command, description):
-    with open(ALIAS_FILE, "a") as f:
-        f.write(f"\n# {description}\nalias {alias}='{command}'\n")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", alias):
+        messagebox.showerror("Erro", "Use um nome sem espaços ou caracteres especiais.")
+        return
+    if any(c in command for c in "\r\n\0"):
+        messagebox.showerror("Erro", "O comando precisa estar em uma única linha.")
+        return
+    os.makedirs(os.path.dirname(ALIAS_FILE), exist_ok=True)
+    description = " ".join(description.splitlines())
+    with open(ALIAS_FILE, "a", encoding="utf-8") as f:
+        f.write(f"\n# {description}\nalias -- {shlex.quote(alias)} {shlex.quote(command)}\n")
     reload_terminal()
+
 
 def remove_alias_from_file(name):
     if not os.path.exists(ALIAS_FILE):
         return False
-    with open(ALIAS_FILE, "r") as f:
+    with open(ALIAS_FILE, encoding="utf-8") as f:
         lines = f.readlines()
-    with open(ALIAS_FILE, "w") as f:
-        skip = False
-        for line in lines:
-            if line.startswith(f"alias {name}="):
-                skip = True
-                continue
-            if skip and line.startswith("#"):  # Remove também a descrição
-                continue
-            skip = False
-            f.write(line)
-    reload_terminal()
-    return True
+    kept = []
+    removed = False
+    for line in lines:
+        alias = parse_alias(line.strip())
+        if alias and alias[0] == name:
+            if kept and kept[-1].lstrip().startswith("#"):
+                kept.pop()
+            removed = True
+            continue
+        kept.append(line)
+    if removed:
+        with open(ALIAS_FILE, "w", encoding="utf-8") as f:
+            f.writelines(kept)
+        reload_terminal()
+    return removed
+
 
 def add_alias():
     alias = simpledialog.askstring("Adicionar Alias", "Nome do alias:")
@@ -85,7 +120,10 @@ def remove_alias():
             messagebox.showerror("Erro", "Alias não encontrado.")
 
 def edit_aliases():
-    os.system(f"{EDITOR} {ALIAS_FILE} &")
+    try:
+        subprocess.Popen([*shlex.split(EDITOR), ALIAS_FILE])
+    except (OSError, ValueError) as exc:
+        messagebox.showerror("Erro", f"Não consegui abrir o editor: {exc}")
 
 def update_alias_list():
     aliases = read_aliases()

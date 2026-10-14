@@ -1,0 +1,8 @@
+# Dependencies for the original Python desktop utilities.
+# Twitch has its own requirements-twitch.txt.
+pandas
+openpyxl
+numpy
+matplotlib
+pyperclip
+cryptography

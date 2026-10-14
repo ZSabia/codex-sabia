@@ -1,4 +1,5 @@
 import locale
+import math
 import pandas as pd
 from datetime import datetime
 import tkinter as tk
@@ -33,7 +34,8 @@ class CalculadoraEstatistica:
         if not valor.strip():
             return None
         try:
-            return locale.atof(valor.strip())
+            numero = locale.atof(valor.strip())
+            return numero if math.isfinite(numero) else None
         except (ValueError, AttributeError):
             return None
     

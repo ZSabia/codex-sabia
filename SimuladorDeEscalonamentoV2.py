@@ -215,7 +215,7 @@ class SchedulerApp:
         tempo = self.tempo_entry.get()
         prioridade = self.prioridade_entry.get()
         entrada = self.entrada_entry.get()
-        if nome and tempo.isdigit() and prioridade.isdigit() and entrada.isdigit():
+        if nome and tempo.isdigit() and int(tempo) > 0 and prioridade.isdigit() and entrada.isdigit():
             pid = len(self.processos)
             cor = self.gerar_cor_unica(nome + str(pid))
             self.processos.append({
@@ -264,6 +264,8 @@ class SchedulerApp:
 
     def round_robin(self, procs, q):
         # Simula execução Round Robin
+        if q <= 0:
+            raise ValueError("Quantum deve ser maior que zero.")
         from collections import deque
         fila = deque(sorted([{"pid":p["pid"],"nome":p["nome"],"restante":p["tempo_exec"],"entrada":p["entrada"],"cor":p["cor"]} for p in procs], key=lambda x: x["entrada"]))
         tempo = 0; execucao = []; pronta = deque()
@@ -332,6 +334,8 @@ class SchedulerApp:
         total_espera = 0
         total_retorno = 0
         n = len(stats)
+        if not n:
+            return 0.0, 0.0
 
         for v in stats.values():
             tempo_retorno = v["termino"] - v["entrada"]    # tempo total até o processo terminar

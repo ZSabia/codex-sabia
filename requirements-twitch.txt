@@ -1,0 +1,5 @@
+# Twitch app Python dependencies; VLC/libVLC must be installed separately.
+PyQt6
+requests
+streamlink>=8
+python-vlc

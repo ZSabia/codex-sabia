@@ -172,3 +172,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Local credentials, generated data and app environments
+chave.key
+senhas.dat
+.twitch_app_credentials.json
+emotes_cache/
+.venv-twitch/
+resultados_calculadora_*.xlsx
