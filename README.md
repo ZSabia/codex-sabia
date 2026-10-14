@@ -1,59 +1,52 @@
 # codex-sabia
 
-Coleção de aplicações pessoais em Python, desenvolvidas por Zé Sabiá para explorar estatística, escalonamento de processos e ferramentas para o desktop Linux.
+A few Python tools I made for my own use and to try out ideas: a statistics calculator, a scheduling simulator, and some Linux utilities.
 
-Os programas são independentes e utilizam interfaces gráficas em Tkinter. Este README apresenta suas funcionalidades, dependências e pontos de entrada para quem deseja executar, estudar ou adaptar o código.
+Each program runs on its own and has a Tkinter interface. If something here is useful to you, feel free to take it apart and make it your own. The layouts are just how I put the first versions together; you can change the colors, move things around, or build a different interface.
 
-## Sobre as interfaces
+## What's here
 
-As interfaces atuais são implementações iniciais e podem ser adaptadas conforme a necessidade. Cores, fontes, organização dos componentes e disposição das telas não constituem um padrão definitivo.
-
-A personalização é feita no código. Atualmente não existe um editor de layouts ou uma API comum de temas entre as aplicações; a interface e parte da lógica estão no mesmo arquivo de cada programa.
-
-## Aplicações
-
-### Calculadora estatística
+### Statistics calculator
 
 [CalculadoraEstatistica.py](CalculadoraEstatistica.py)
 
-Calcula tamanho de amostra usando proporção ou desvio padrão, com entradas para população, nível de confiança e margem de erro. Mantém um histórico durante a execução e exporta os resultados para Excel (`.xlsx`) no diretório de trabalho.
+Calculates sample sizes using either proportions or standard deviation. It keeps a history of results while the app is open and can export them to an Excel file in the working directory.
 
-- **Dependências:** pandas e openpyxl, além de Tkinter.
-- **Lógica:** `formula_amostra_proporcao`, `formula_amostra_desvio` e os métodos de cálculo da classe `CalculadoraEstatistica`.
-- **Interface:** `_configurar_janela`, `_criar_grupo_formula` e `_criar_interface`.
-- **Exportação:** `_exportar_resultados`.
+**Needs:** pandas, openpyxl, and Tkinter.
+
+The calculations are in `formula_amostra_proporcao`, `formula_amostra_desvio`, and the calculation methods in `CalculadoraEstatistica`. For the layout, start with `_configurar_janela`, `_criar_grupo_formula`, and `_criar_interface`. Excel export is handled by `_exportar_resultados`.
 
 ```sh
 .venv/bin/python CalculadoraEstatistica.py
 ```
 
-### Simulador de escalonamento
+### Scheduling simulator
 
 [SimuladorDeEscalonamentoV2.py](SimuladorDeEscalonamentoV2.py)
 
-Permite cadastrar processos com tempo de execução, prioridade e instante de entrada, além de definir o quantum. Compara FIFO, SJF, prioridade e Round Robin por meio de gráficos de Gantt e calcula métricas de espera e permanência. Também permite exportar os gráficos.
+Add processes with execution times, priorities, and arrival times, then compare FIFO, SJF, priority scheduling, and Round Robin. The app displays Gantt charts, calculates waiting and turnaround times, and lets you export the charts.
 
-- **Dependências:** NumPy e Matplotlib, além de Tkinter.
-- **Lógica:** `simular_execucao`, `round_robin`, `sjf`, `prioridade` e `calcular_tme_tmp` na classe `SchedulerApp`.
-- **Interface e aparência:** `setup_ui`, `configurar_tema`, `criar_seletor_tema` e `gerar_gantt`.
-- **Dados de exemplo:** o botão chamado “IA” gera processos aleatórios; não utiliza um modelo de inteligência artificial.
+**Needs:** NumPy, Matplotlib, and Tkinter.
+
+The scheduling code is in `simular_execucao`, `round_robin`, `sjf`, and `prioridade`, inside `SchedulerApp`. Metrics are calculated in `calcular_tme_tmp`. The interface and charts are built in `setup_ui`, `configurar_tema`, `criar_seletor_tema`, and `gerar_gantt`.
+
+The button labeled “IA” generates random example processes. It doesn't use an AI model.
 
 ```sh
 .venv/bin/python SimuladorDeEscalonamentoV2.py
 ```
 
-### Gerenciador de aliases
+### Bash alias manager
 
 [alias_manager.py](alias_manager.py)
 
-Interface para consultar, adicionar, editar e remover aliases armazenados em `~/.bash_aliases`. Exibe nome, comando e descrição e permite copiar aliases ou comandos para a área de transferência.
+A small interface for viewing, adding, editing, and removing aliases in `~/.bash_aliases`. It shows the alias name, command, and description, and can copy aliases or commands to the clipboard.
 
-- **Dependência:** pyperclip, além de Tkinter.
-- **Leitura e escrita:** `read_aliases`, `write_alias` e `remove_alias_from_file`.
-- **Interface:** `create_gui` e as funções associadas aos botões e ao menu de contexto.
-- **Ambiente:** foi escrito para Bash. O botão de abrir terminal depende da existência do comando `terminal` no sistema.
+**Needs:** pyperclip and Tkinter. It works with Bash aliases.
 
-Faça uma cópia de `~/.bash_aliases` antes de experimentar alterações.
+File handling is in `read_aliases`, `write_alias`, and `remove_alias_from_file`. The interface is built in `create_gui`, with separate functions for the button actions and context menu.
+
+Back up `~/.bash_aliases` before trying changes. The “open terminal” action assumes a command named `terminal` is available on your system.
 
 ```sh
 .venv/bin/python alias_manager.py
@@ -63,39 +56,37 @@ Faça uma cópia de `~/.bash_aliases` antes de experimentar alterações.
 
 [FlatTrash.py](FlatTrash.py)
 
-Ferramenta para Linux que lista aplicações Flatpak e seus tamanhos, permite solicitar a desinstalação de aplicações e consulta os maiores diretórios da pasta pessoal. Inclui uma ação de limpeza de cache e lixeira.
+A Linux utility for listing installed Flatpak apps and their sizes, uninstalling apps, and checking which directories take up space in your home folder. It also has a cache and trash cleanup button.
 
-- **Requisitos:** Tkinter, Flatpak e os utilitários Linux chamados pelo código (`du`, `sort`, `head` e `rm`).
-- **Operações:** `get_flatpaks`, `get_big_dirs`, `uninstall_flatpak` e `clean_trash_and_cache`.
-- **Interface:** criada no bloco principal do arquivo, com atualização da lista em `refresh_app_list`.
-- **Comportamento atual:** a limpeza apaga o conteúdo de `~/.cache` e `~/.local/share/Trash` sem confirmação específica. A remoção de Flatpaks pede confirmação, mas o retorno do comando não é validado antes da mensagem de sucesso.
+**Needs:** Tkinter, Flatpak, and the Linux commands used by the script: `du`, `sort`, `head`, and `rm`.
 
-Revise essas operações antes de usar a ferramenta em seu ambiente.
+The operations are in `get_flatpaks`, `get_big_dirs`, `uninstall_flatpak`, and `clean_trash_and_cache`. The interface is built at the bottom of the file; `refresh_app_list` updates the app list.
+
+Check the cleanup code before using it: it deletes the contents of `~/.cache` and `~/.local/share/Trash` without asking for confirmation. Flatpak removal does ask, but the app currently reports success without checking the command's exit status.
 
 ```sh
 .venv/bin/python FlatTrash.py
 ```
 
-### Cofre de senhas experimental
+### Password storage experiment
 
 [CofreDeSenhas.py](CofreDeSenhas.py)
 
-Experimento de armazenamento local que associa serviços a senhas e utiliza Fernet para criptografar os dados. Cria os arquivos `chave.key` e `senhas.dat` no diretório de trabalho.
+Stores service names and passwords locally, using Fernet to encrypt the data. It creates `chave.key` and `senhas.dat` in the working directory.
 
-- **Dependência:** cryptography, além de Tkinter.
-- **Persistência:** `carregar_ou_criar_chave`, `salvar_senhas` e `carregar_senhas`.
-- **Interface:** classe `CofreGUI`.
-- **Limitação:** não há autenticação por senha mestra e a chave fica junto dos dados. Use dados fictícios para estudo; o projeto não foi apresentado como um gerenciador de senhas pronto para uso real.
+**Needs:** cryptography and Tkinter.
 
-Não publique a chave nem o arquivo de senhas ao compartilhar sua adaptação.
+Storage is handled by `carregar_ou_criar_chave`, `salvar_senhas`, and `carregar_senhas`. The interface is in `CofreGUI`.
+
+This is a learning project: the encryption key is stored alongside the data, and there's no master password. Use dummy passwords when experimenting, and keep both generated files out of any code you share.
 
 ```sh
 .venv/bin/python CofreDeSenhas.py
 ```
 
-## Preparar o ambiente
+## Getting started
 
-É necessário Python 3 com suporte a Tkinter e uma sessão gráfica. As ferramentas de aliases e manutenção dependem de Linux; a compatibilidade das demais aplicações em outros sistemas não foi verificada.
+You'll need Python 3, Tkinter, and a graphical desktop session. The alias manager and FlatTrash depend on Linux. I haven't verified the other programs on other operating systems.
 
 ```sh
 git clone https://github.com/ZSabia/codex-sabia.git
@@ -103,26 +94,24 @@ cd codex-sabia
 python3 -m venv .venv
 ```
 
-Instale apenas as dependências da aplicação que deseja utilizar:
+Install the packages for whichever program you want to run:
 
-| Aplicação | Comando |
+| Program | Command |
 | --- | --- |
-| Calculadora estatística | `.venv/bin/python -m pip install pandas openpyxl` |
-| Simulador de escalonamento | `.venv/bin/python -m pip install numpy matplotlib` |
-| Gerenciador de aliases | `.venv/bin/python -m pip install pyperclip` |
-| Cofre de senhas | `.venv/bin/python -m pip install cryptography` |
-| FlatTrash | Não possui dependências Python adicionais além de Tkinter |
+| Statistics calculator | `.venv/bin/python -m pip install pandas openpyxl` |
+| Scheduling simulator | `.venv/bin/python -m pip install numpy matplotlib` |
+| Alias manager | `.venv/bin/python -m pip install pyperclip` |
+| Password storage experiment | `.venv/bin/python -m pip install cryptography` |
+| FlatTrash | No extra Python packages beyond Tkinter |
 
-Em distribuições baseadas em Debian/Ubuntu, Tkinter e o suporte a ambientes virtuais são disponibilizados pelos pacotes `python3-tk` e `python3-venv`. O pyperclip pode exigir uma ferramenta de área de transferência compatível com sua sessão gráfica.
+On Debian/Ubuntu-based distributions, Tkinter and virtual environment support are provided by `python3-tk` and `python3-venv`. Depending on your desktop session, pyperclip may also need a clipboard utility.
 
-## Estudar e adaptar
+## Changing the interface
 
-Cada aplicação está em um arquivo próprio. Os pontos de entrada descritos acima ajudam a localizar os cálculos, as operações e a construção da interface.
+There isn't a shared layout system or a visual editor here. Each program has its own interface code, in the same file as its logic.
 
-Ao modificar o layout, preserve ou atualize as associações entre componentes e callbacks. Para adaptações maiores, separar a lógica da interface em módulos facilita a reutilização e os testes.
+Use the functions mentioned above as starting points. If you replace or rearrange widgets, check their callbacks too. For a bigger rewrite, moving the calculations or system operations into separate modules would make them easier to reuse with another interface.
 
-São projetos pessoais em evolução. As descrições foram conferidas no código; não representam uma certificação de funcionamento em todas as plataformas.
+## License
 
-## Licença
-
-Distribuído sob a [licença MIT](LICENSE).
+[MIT](LICENSE).
