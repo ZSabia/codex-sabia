@@ -660,13 +660,11 @@ class StreamTab(QWidget):
         
         self.streamlink_process = None # Segura o processo em segundo plano
 
-        # Passa opções agressivas ao VLC (ele agora lerá de um servidor local super rápido)
+        # O proxy é local, mas os dados ainda chegam da rede: reserve buffer
+        # para oscilações e mantenha a sincronização padrão de áudio/vídeo.
         vlc_options = [
-            "--network-caching=50",
-            "--live-caching=50",
-            "--file-caching=0",
-            "--clock-jitter=0",
-            "--clock-synchro=0"
+            "--network-caching=1000",
+            "--live-caching=1000"
         ]
         self.vlc_instance = vlc.Instance(vlc_options)
         self.media_player = self.vlc_instance.media_player_new()
