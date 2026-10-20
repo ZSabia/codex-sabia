@@ -98,6 +98,26 @@ Streamlink filters embedded ads automatically, but playback can pause while an a
 
 **Needs:** PyQt6, requests, streamlink, python-vlc, and VLC/libVLC installed on the system. Internet access and your own Twitch Client ID and user access token are required. Features depend on the permissions of that token.
 
+Each tab has its own volume and mute controls. Only the selected tab plays audio;
+switching tabs preserves each tab's volume and manual mute setting. Cinema mode
+hides the channel sidebar, tab bar, and chat. Picture-in-picture moves the same
+player into an always-on-top window; closing that window returns it to its tab.
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+Up / Ctrl+Down | Adjust the selected tab's volume |
+| Ctrl+M | Mute/unmute the selected tab |
+| Ctrl+Shift+C | Toggle cinema mode |
+| Ctrl+Shift+P | Toggle picture-in-picture |
+| Ctrl+Tab / Ctrl+Shift+Tab | Next/previous tab |
+| F11 | Toggle full screen |
+| Esc | Return from picture-in-picture, cinema, and full screen |
+| Ctrl+B | Toggle the channel sidebar |
+
+Player control tests (PyQt6 and the Twitch dependencies required):
+`python tests/test_player_controls.py -v`. These tests use a mocked player and
+no network; native VLC/X11 playback needs a separate runtime check.
+
 `TwitchApp.init_ui` builds the main window; `StreamTab.init_ui` builds each stream tab. Playback starts in `_resolve_and_play`, and `IRCClient` handles chat over TLS.
 
 ```sh

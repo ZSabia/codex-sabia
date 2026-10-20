@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QPushButton, QLineEdit, QTextBrowser, QLabel,
     QSplitter, QInputDialog, QMessageBox, QFrame, QListWidgetItem,
     QTabWidget, QToolButton, QGridLayout, QScrollArea,
-    QDialog, QDialogButtonBox
+    QDialog, QDialogButtonBox, QSlider
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QByteArray, QSize
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QPixmap, QIcon
@@ -649,6 +649,26 @@ class EmotePickerPopup(QWidget):
         self.on_pick(name)
         self.close()
 
+class PictureWindow(QWidget):
+    """Janela leve que recebe o mesmo vídeo, sem outra reprodução."""
+    def __init__(self, tab):
+        super().__init__(None, Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
+        self.tab = tab
+        self.setWindowTitle(f"{tab.channel_name} — Picture-in-picture")
+        self.resize(640, 360)
+        self.box = QVBoxLayout(self)
+        self.box.setContentsMargins(0, 0, 0, 0)
+        button = QPushButton("Voltar à aba (Esc)")
+        button.clicked.connect(self.close)
+        self.box.addWidget(button)
+        shortcut = QShortcut(QKeySequence("Escape"), self)
+        shortcut.activated.connect(self.close)
+
+    def closeEvent(self, event):
+        self.tab.restore_video()
+        event.accept()
+
+
 # WIDGET DE UMA ABA DE STREAM
 class StreamTab(QWidget):
     def __init__(self, channel_name, user_login, display_name, parent_window):
@@ -659,6 +679,10 @@ class StreamTab(QWidget):
         self.parent_window = parent_window
         
         self.streamlink_process = None # Segura o processo em segundo plano
+        self.user_muted = False
+        self.focus_muted = False
+        self.volume = 100
+        self.pip_window = None
 
         # O proxy é local, mas os dados ainda chegam da rede: reserve buffer
         # para oscilações e mantenha a sincronização padrão de áudio/vídeo.
@@ -686,12 +710,34 @@ class StreamTab(QWidget):
         # Player de Vídeo
         video_container = QWidget()
         video_layout = QVBoxLayout(video_container)
+        self.video_layout = video_layout
         video_layout.setContentsMargins(0, 0, 0, 0)
 
         self.video_frame = VideoFrame()
         self.video_frame.setStyleSheet("background-color: #000000; border-radius: 16px;")
         self.video_frame.double_clicked.connect(self.parent_window.toggle_fullscreen)
         video_layout.addWidget(self.video_frame)
+        controls = QHBoxLayout()
+        self.mute_button = QPushButton("Som")
+        self.mute_button.setCheckable(True)
+        self.mute_button.setToolTip("Silenciar esta aba (Ctrl+M)")
+        self.mute_button.toggled.connect(self.set_user_muted)
+        controls.addWidget(self.mute_button)
+        self.volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(self.volume)
+        self.volume_slider.setToolTip("Volume desta aba (Ctrl+↑ / Ctrl+↓)")
+        self.volume_slider.valueChanged.connect(self.set_volume)
+        controls.addWidget(self.volume_slider)
+        self.volume_label = QLabel("100%")
+        controls.addWidget(self.volume_label)
+        for title, callback in [("Cinema", self.parent_window.toggle_cinema),
+                                ("PiP", self.toggle_pip),
+                                ("Tela cheia", self.parent_window.toggle_fullscreen)]:
+            button = QPushButton(title)
+            button.clicked.connect(callback)
+            controls.addWidget(button)
+        video_layout.addLayout(controls)
 
         splitter.addWidget(video_container)
 
@@ -705,6 +751,7 @@ class StreamTab(QWidget):
 
         # Chat
         chat_widget = QWidget()
+        self.chat_widget = chat_widget
         chat_layout = QVBoxLayout(chat_widget)
         chat_layout.setContentsMargins(0, 0, 0, 0)
         chat_layout.setSpacing(6)
@@ -816,6 +863,8 @@ class StreamTab(QWidget):
             media = self.vlc_instance.media_new(stream_url)
             self.media_player.set_media(media)
             self.media_player.play()
+            self.media_player.audio_set_volume(self.volume)
+            self.apply_audio()
             
         except Exception as e:
             self.chat_signals.status_changed.emit(f"Erro ao abrir: {e}")
@@ -882,18 +931,57 @@ class StreamTab(QWidget):
         só a própria Twitch pode processar, não dá (nem deve) ser feito via API."""
         webbrowser.open(f"https://www.twitch.tv/subs/{self.channel_name}")
 
+    def set_volume(self, value):
+        self.volume = value
+        self.volume_label.setText(f"{value}%")
+        self.media_player.audio_set_volume(value)
+
+    def set_user_muted(self, muted):
+        self.user_muted = muted
+        self.mute_button.setText("Mudo" if muted else "Som")
+        self.apply_audio()
+
     def set_muted(self, muted: bool):
-        """Muta/desmuta só o áudio desta aba — cada aba tem seu próprio media_player,
-        então isso não afeta o vídeo/stream de nenhuma outra aba."""
-        try:
-            self.media_player.audio_set_mute(muted)
-        except Exception:
-            pass
+        self.focus_muted = muted
+        self.apply_audio()
+
+    def apply_audio(self):
+        self.media_player.audio_set_mute(self.user_muted or self.focus_muted)
+
+    def bind_video(self):
+        handle = int(self.video_frame.winId())
+        if sys.platform.startswith("linux"):
+            self.media_player.set_xwindow(handle)
+        elif sys.platform == "win32":
+            self.media_player.set_hwnd(handle)
+        elif sys.platform == "darwin":
+            self.media_player.set_nsobject(handle)
+
+    def toggle_pip(self):
+        if self.pip_window is not None:
+            self.pip_window.close()
+            return
+        self.pip_window = PictureWindow(self)
+        self.pip_window.box.insertWidget(0, self.video_frame, 1)
+        self.pip_window.show()
+        self.video_frame.show()
+        self.bind_video()
+
+    def restore_video(self):
+        self.video_layout.insertWidget(0, self.video_frame, 1)
+        self.video_frame.show()
+        self.bind_video()
+        window = self.pip_window
+        self.pip_window = None
+        if window is not None:
+            window.deleteLater()
 
     def update_status(self, text):
         self.lbl_chat_status.setText(text)
 
     def close_tab(self):
+        if self.pip_window is not None:
+            self.pip_window.close()
         if self.irc_client:
             self.irc_client.stop()
         self.media_player.stop()
@@ -915,6 +1003,8 @@ class TwitchApp(QMainWindow):
             QMessageBox.critical(self, "Erro", "Falha ao autenticar. Verifique CLIENT_ID e ACCESS_TOKEN.")
             sys.exit(1)
 
+        self.cinema_mode = False
+        self.cinema_sizes = None
         self.open_tabs = {}
         self.saved_sidebar_size = 260
 
@@ -928,6 +1018,21 @@ class TwitchApp(QMainWindow):
         # Atalho de teclado Ctrl+B para ocultar/mostrar a sidebar
         shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
         shortcut.activated.connect(self.toggle_sidebar)
+        self.shortcuts = []
+        for key, callback in [
+            ("F11", self.toggle_fullscreen),
+            ("Escape", self.leave_view_modes),
+            ("Ctrl+Shift+C", self.toggle_cinema),
+            ("Ctrl+Shift+P", lambda: self.with_tab(lambda t: t.toggle_pip())),
+            ("Ctrl+M", lambda: self.with_tab(lambda t: t.mute_button.toggle())),
+            ("Ctrl+Up", lambda: self.adjust_volume(5)),
+            ("Ctrl+Down", lambda: self.adjust_volume(-5)),
+            ("Ctrl+Tab", lambda: self.cycle_tab(1)),
+            ("Ctrl+Shift+Tab", lambda: self.cycle_tab(-1)),
+        ]:
+            action = QShortcut(QKeySequence(key), self)
+            action.activated.connect(callback)
+            self.shortcuts.append(action)
 
     def _load_usable_emotes(self):
         usable = get_user_emotes(self.user_id)
@@ -946,6 +1051,7 @@ class TwitchApp(QMainWindow):
 
         # PAINEL LATERAL ESQUERDO
         sidebar = QWidget()
+        self.sidebar = sidebar
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -990,7 +1096,9 @@ class TwitchApp(QMainWindow):
         # Barra de atalhos sempre visível
         shortcuts_bar = QLabel(
             "⌨  <b>Ctrl+B</b> ocultar barra  ·  <b>F11</b> tela cheia  ·  "
-            "<b>2x clique</b> no vídeo = tela cheia  ·  <b>Enter</b> envia"
+            "<b>Ctrl+Shift+C</b> cinema · <b>Ctrl+Shift+P</b> PiP · "
+            "<b>Ctrl+M</b> mudo · <b>Ctrl+↑/↓</b> volume · "
+            "<b>Ctrl+Tab</b> trocar aba · <b>Esc</b> voltar"
         )
         shortcuts_bar.setObjectName("shortcutsBar")
         shortcuts_bar.setWordWrap(True)
@@ -1016,6 +1124,9 @@ class TwitchApp(QMainWindow):
     # CONTROLE DA BARRA LATERAL (RECOLHER / EXPANDIR)
     # --------------------------------------------------------------------------
     def toggle_sidebar(self):
+        if self.cinema_mode:
+            self.toggle_cinema()
+            return
         sizes = self.main_splitter.sizes()
         if sizes[0] > 0:
             # Salva a largura atual antes de fechar
@@ -1028,11 +1139,45 @@ class TwitchApp(QMainWindow):
     # --------------------------------------------------------------------------
     # FOCO DE ÁUDIO (só a aba ativa toca som; as outras ficam mudas)
     # --------------------------------------------------------------------------
+    def with_tab(self, callback):
+        tab = self.tab_widget.currentWidget()
+        if isinstance(tab, StreamTab):
+            callback(tab)
+
+    def adjust_volume(self, delta):
+        self.with_tab(lambda t: t.volume_slider.setValue(t.volume_slider.value() + delta))
+
+    def cycle_tab(self, delta):
+        count = self.tab_widget.count()
+        if count:
+            self.tab_widget.setCurrentIndex((self.tab_widget.currentIndex() + delta) % count)
+
+    def toggle_cinema(self):
+        if not self.tab_widget.count():
+            return
+        self.cinema_mode = not self.cinema_mode
+        if self.cinema_mode:
+            self.cinema_sizes = self.main_splitter.sizes()
+        self.sidebar.setVisible(not self.cinema_mode)
+        self.tab_widget.tabBar().setVisible(not self.cinema_mode)
+        for i in range(self.tab_widget.count()):
+            self.tab_widget.widget(i).chat_widget.setVisible(not self.cinema_mode)
+        if not self.cinema_mode and self.cinema_sizes:
+            self.main_splitter.setSizes(self.cinema_sizes)
+
+    def leave_view_modes(self):
+        self.with_tab(lambda t: t.pip_window.close() if t.pip_window else None)
+        if self.cinema_mode:
+            self.toggle_cinema()
+        if self.isFullScreen():
+            self.showNormal()
+
     def on_tab_changed(self, index):
         for i in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(i)
             if isinstance(tab, StreamTab):
                 tab.set_muted(i != index)
+                tab.chat_widget.setVisible(not self.cinema_mode)
 
     # --------------------------------------------------------------------------
     # GERENCIAMENTO DE ABAS
@@ -1053,6 +1198,8 @@ class TwitchApp(QMainWindow):
         self.tab_widget.setCurrentIndex(tab_index)
 
     def close_tab_at_index(self, index):
+        if self.cinema_mode and self.tab_widget.count() == 1:
+            self.toggle_cinema()
         tab_widget = self.tab_widget.widget(index)
         if isinstance(tab_widget, StreamTab):
             for key, val in list(self.open_tabs.items()):
